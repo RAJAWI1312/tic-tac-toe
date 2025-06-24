@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tic Tac Toe - Ultra</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Arial', sans-serif;
+      background: linear-gradient(to bottom, #f0f0f0, #ddd);
+      text-align: center;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+    }
+
+    #scoreboard {
+      margin-bottom: 20px;
+      font-size: 1.1rem;
+    }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      grid-template-rows: repeat(3, 100px);
+      gap: 8px;
+      justify-content: center;
+      margin: 0 auto;
+      transition: all 0.3s;
+    }
+
+    .cell {
+      background-color: #fff;
+      border-radius: 10px;
+      font-size: 2.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      transition: transform 0.2s;
+    }
+
+    .cell:hover {
+      transform: scale(1.05);
+      background-color: #f9f9f9;
+    }
+
+    #status {
+      font-size: 1.2rem;
+      margin-top: 20px;
+    }
+
+    button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      font-size: 1rem;
+      border: none;
+      background: #007bff;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    @media screen and (max-width: 500px) {
+      #board {
+        grid-template-columns: repeat(3, 80px);
+        grid-template-rows: repeat(3, 80px);
+        gap: 5px;
+      }
+
+      .cell {
+        font-size: 2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Tic Tac Toe - IA Imbattable</h1>
+  <div id="scoreboard">
+    Victoires: <span id="wins">0</span> | Défaites: <span id="losses">0</span> | Nuls: <span id="draws">0</span>
+  </div>
+  <div id="board"></div>
+  <div id="status">Ton tour (X)</div>
+  <button onclick="resetGame()">Rejouer</button>
+
+  <audio id="clickSound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
+  <audio id="winSound" src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg"></audio>
+  <audio id="drawSound" src="https://actions.google.com/sounds/v1/cartoon/pop.ogg"></audio>
+
+  <script>
+    const board = document.getElementById("board");
+    const statusText = document.getElementById("status");
+    const clickSound = document.getElementById("clickSound");
+    const winSound = document.getElementById("winSound");
+    const drawSound = document.getElementById("drawSound");
+
+    let cells = Array(9).fill("");
+    let gameActive = true;
+    const player = "X";
+    const ai = "O";
+
+    let wins = 0, losses = 0, draws = 0;
+
+    const winConditions = [
+      [0,1,2], [3,4,5], [6,7,8],
+      [0,3,6], [1,4,7], [2,5,8],
+      [0,4,8], [2,4,6]
+    ];
+
+    function createBoard() {
+      board.innerHTML = "";
+      cells.forEach((val, index) => {
+        const cell = document.createElement("div");
+        cell.classList.add("cell");
+        cell.dataset.index = index;
+        cell.innerText = val;
+        cell.addEventListener("click", handlePlayerMove);
+        board.appendChild(cell);
+      });
+    }
+
+    function handlePlayerMove(e) {
+      const index = e.target.dataset.index;
+      if (!gameActive || cells[index] !== "") return;
+
+      cells[index] = player;
+      clickSound.play();
+      updateBoard();
+
+      if (checkWin(player)) {
+        statusText.innerText = "Tu as gagné ! 🎉";
+        winSound.play();
+        wins++;
+        updateScore();
+        gameActive = false;
+        return;
+      }
+
+      if (isDraw()) {
+        statusText.innerText = "Match nul !";
+        drawSound.play();
+        draws++;
+        updateScore();
+        gameActive = false;
+        return;
+      }
+
+      statusText.innerText = "Tour de l'ordinateur...";
+      setTimeout(aiMove, 500);
+    }
+
+    function aiMove() {
+      if (!gameActive) return;
+
+      let bestScore = -Infinity;
+      let move;
+      for (let i = 0; i < 9; i++) {
+        if (cells[i] === "") {
+          cells[i] = ai;
+          let score = minimax(cells, 0, false);
+          cells[i] = "";
+          if (score > bestScore) {
+            bestScore = score;
+            move = i;
+          }
+        }
+      }
+
+      cells[move] = ai;
+      clickSound.play();
+      updateBoard();
+
+      if (checkWin(ai)) {
+        statusText.innerText = "L'ordinateur a gagné ! 🤖";
+        winSound.play();
+        losses++;
+        updateScore();
+        gameActive = false;
+        return;
+      }
+
+      if (isDraw()) {
+        statusText.innerText = "Match nul !";
+        drawSound.play();
+        draws++;
+        updateScore();
+        gameActive = false;
+        return;
+      }
+
+      statusText.innerText = "À ton tour (X)";
+    }
+
+    function minimax(boardState, depth, isMaximizing) {
+      if (checkWin(ai, boardState)) return 10 - depth;
+      if (checkWin(player, boardState)) return depth - 10;
+      if (isDraw(boardState)) return 0;
+
+      if (isMaximizing) {
+        let bestScore = -Infinity;
+        for (let i = 0; i < 9; i++) {
+          if (boardState[i] === "") {
+            boardState[i] = ai;
+            let score = minimax(boardState, depth + 1, false);
+            boardState[i] = "";
+            bestScore = Math.max(score, bestScore);
+          }
+        }
+        return bestScore;
+      } else {
+        let bestScore = Infinity;
+        for (let i = 0; i < 9; i++) {
+          if (boardState[i] === "") {
+            boardState[i] = player;
+            let score = minimax(boardState, depth + 1, true);
+            boardState[i] = "";
+            bestScore = Math.min(score, bestScore);
+          }
+        }
+        return bestScore;
+      }
+    }
+
+    function checkWin(symbol, boardToCheck = cells) {
+      return winConditions.some(cond =>
+        cond.every(index => boardToCheck[index] === symbol)
+      );
+    }
+
+    function isDraw(boardToCheck = cells) {
+      return boardToCheck.every(cell => cell !== "");
+    }
+
+    function updateBoard() {
+      createBoard();
+    }
+
+    function updateScore() {
+      document.getElementById("wins").textContent = wins;
+      document.getElementById("losses").textContent = losses;
+      document.getElementById("draws").textContent = draws;
+    }
+
+    function resetGame() {
+      cells = Array(9).fill("");
+      gameActive = true;
+      statusText.innerText = "Ton tour (X)";
+      createBoard();
+    }
+
+    // Lancer
+    createBoard();
+  </script>
+</body>
+</html>
